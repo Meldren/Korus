@@ -15,6 +15,18 @@ final class SessionRecorder {
     /// header (the format itself caps at ~4 GB ≈ 37h of 16 kHz mono Int16).
     private var audioBytesWritten: UInt64 = 0
 
+    private var openConfig: (translationEnabled: Bool, customRootPath: String)?
+
+    /// True while a session folder is open. Audio + text writes append to it across
+    /// Listen→Stop→Listen cycles; the trash button (or app quit) closes it.
+    var hasOpenSession: Bool { originalHandle != nil }
+
+    func canResume(translationEnabled: Bool, customRootPath: String) -> Bool {
+        guard let cfg = openConfig else { return false }
+        return cfg.translationEnabled == translationEnabled
+            && cfg.customRootPath == customRootPath
+    }
+
     private static let audioSampleRate: UInt32 = 16_000
     private static let audioChannels: UInt16 = 1
     private static let audioBitsPerSample: UInt16 = 16
@@ -54,6 +66,7 @@ final class SessionRecorder {
             translationHandle = translation
             audioHandle = audio
             audioBytesWritten = 0
+            openConfig = (translationEnabled, customRootPath)
             return folder
         } catch {
             for handle in openedHandles { try? handle.close() }
@@ -106,6 +119,7 @@ final class SessionRecorder {
             audioBytesWritten = 0
         }
         sessionFolder = nil
+        openConfig = nil
     }
 
     static func sessionsRoot(customPath: String) throws -> URL {

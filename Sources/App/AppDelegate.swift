@@ -23,6 +23,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         actions.onToggle = { [weak self] in self?.toggle() }
         actions.onQuit = { NSApp.terminate(nil) }
         actions.onHideOverlay = { [weak self] in self?.overlayController?.hide() }
+        actions.onClearTranscript = { [weak self] in
+            self?.transcript.clear()
+            self?.coordinator?.endSession()
+        }
 
         let overlay = OverlayController(
             transcript: transcript,
@@ -56,6 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
 
     func applicationWillTerminate(_ notification: Notification) {
         coordinator?.stop()
+        coordinator?.endSession()
     }
 
     private func toggle() {

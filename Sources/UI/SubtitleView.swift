@@ -60,7 +60,7 @@ struct SubtitleView: View {
                     copyTranscript()
                 }
                 iconButton(systemName: "trash", help: trashHelp, disabled: actions.isRunning) {
-                    transcript.clear()
+                    actions.clearTranscript()
                 }
 
                 Divider()

@@ -8,10 +8,12 @@ final class AppActions: ObservableObject {
     var onToggle: () -> Void = {}
     var onQuit: () -> Void = {}
     var onHideOverlay: () -> Void = {}
+    var onClearTranscript: () -> Void = {}
 
     func toggle() { onToggle() }
     func quit() { onQuit() }
     func hideOverlay() { onHideOverlay() }
+    func clearTranscript() { onClearTranscript() }
     func toggleSettings() { isShowingSettings.toggle() }
     func showSettings() { isShowingSettings = true }
     func hideSettings() { isShowingSettings = false }

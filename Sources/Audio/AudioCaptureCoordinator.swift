@@ -54,13 +54,25 @@ final class AudioCaptureCoordinator {
             enableLanguageIdentification: true
         )
 
-        do {
-            try recorder.begin(
-                translationEnabled: settings.translationEnabled,
-                customRootPath: settings.sessionsCustomPath
-            )
-        } catch {
-            NSLog("[Korus] SessionRecorder.begin failed: \(error)")
+        // Reuse the open session folder when settings still match — Listen→Stop→Listen
+        // appends to one folder. If translation toggle or save path changed, close and
+        // start a new folder so files stay consistent with the user's current intent.
+        let canResume = recorder.hasOpenSession && recorder.canResume(
+            translationEnabled: settings.translationEnabled,
+            customRootPath: settings.sessionsCustomPath
+        )
+        if !canResume {
+            if recorder.hasOpenSession {
+                recorder.end()
+            }
+            do {
+                try recorder.begin(
+                    translationEnabled: settings.translationEnabled,
+                    customRootPath: settings.sessionsCustomPath
+                )
+            } catch {
+                NSLog("[Korus] SessionRecorder.begin failed: \(error)")
+            }
         }
 
         let client = SonioxClient(config: config)
@@ -93,13 +105,18 @@ final class AudioCaptureCoordinator {
         sonioxClient?.disconnect()
         sonioxClient = nil
 
-        recorder.end()
+        // recorder is intentionally NOT ended here — we keep the on-disk session open
+        // across Listen→Stop→Listen. `endSession()` closes it (called from trash + quit).
 
         isRunning = false
         isRunningSubject.send(false)
         if case .listening = transcript.status {
             transcript.setStatus(.idle)
         }
+    }
+
+    func endSession() {
+        recorder.end()
     }
 
     private func startCapture() throws {
