@@ -1,0 +1,53 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build (Release, ad-hoc signed)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Korus.xcodeproj \
+            -scheme Korus \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM= \
+            -skipPackagePluginValidation \
+            build | xcbeautify || true
+          test -d build/Build/Products/Release/Korus.app
+
+      - name: Package .app into zip
+        run: |
+          cd build/Build/Products/Release
+          ditto -c -k --sequesterRsrc --keepParent Korus.app ../../../../Korus.zip
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Korus.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: false
