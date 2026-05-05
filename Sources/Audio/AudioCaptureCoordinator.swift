@@ -12,6 +12,9 @@ final class AudioCaptureCoordinator {
     private var microphone: MicrophoneCapture?
     private var systemAudio: AnyObject?  // SystemAudioCapture (gated by 14.4)
     private let recorder = SessionRecorder()
+    /// True after a Stop while the on-disk session is still open. The next non-empty
+    /// commit prepends a separator so words from before/after the pause don't glue.
+    private var pendingSeparator = false
 
     init(settings: AppSettings, transcript: TranscriptStore) {
         self.settings = settings
@@ -121,6 +124,10 @@ final class AudioCaptureCoordinator {
         // Patch the WAV header now so audio.wav opens cleanly in any player while paused.
         recorder.flushAudioHeader()
 
+        // If the recorder still holds the session open, the next Listen must start with
+        // a separator so words don't glue. endSession() resets this.
+        pendingSeparator = recorder.hasOpenSession
+
         if case .listening = transcript.status {
             transcript.setStatus(.idle)
         }
@@ -128,6 +135,7 @@ final class AudioCaptureCoordinator {
 
     func endSession() {
         recorder.end()
+        pendingSeparator = false
     }
 
     private func startCapture() throws {
@@ -178,8 +186,15 @@ extension AudioCaptureCoordinator: SonioxClientDelegate {
     nonisolated func sonioxClient(_ client: SonioxClient, didCommitOriginal original: String, translated: String, speaker: Int?) {
         Task { @MainActor in
             guard self.isRunning else { return }
-            self.transcript.appendCommitted(original: original, translated: translated, speaker: speaker)
-            self.recorder.appendCommit(original: original, translated: translated)
+            var o = original
+            var t = translated
+            if self.pendingSeparator && (!o.isEmpty || !t.isEmpty) {
+                self.pendingSeparator = false
+                if !o.isEmpty { o = " " + o }
+                if !t.isEmpty { t = " " + t }
+            }
+            self.transcript.appendCommitted(original: o, translated: t, speaker: speaker)
+            self.recorder.appendCommit(original: o, translated: t)
         }
     }
 
