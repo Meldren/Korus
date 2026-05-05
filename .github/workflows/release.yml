@@ -18,8 +18,8 @@ jobs:
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode.app
 
-      - name: Install XcodeGen
-        run: brew install xcodegen
+      - name: Install build tools
+        run: brew install xcodegen create-dmg
 
       - name: Generate Xcode project
         run: xcodegen generate
@@ -39,15 +39,25 @@ jobs:
             build | xcbeautify || true
           test -d build/Build/Products/Release/Korus.app
 
-      - name: Package .app into zip
+      - name: Build DMG
         run: |
-          cd build/Build/Products/Release
-          ditto -c -k --sequesterRsrc --keepParent Korus.app ../../../../Korus.zip
+          APP=build/Build/Products/Release/Korus.app
+          STAGE=$(mktemp -d)
+          cp -R "$APP" "$STAGE/"
+          create-dmg \
+            --volname "Korus" \
+            --window-size 540 360 \
+            --icon-size 96 \
+            --icon Korus.app 140 170 \
+            --app-drop-link 400 170 \
+            --hide-extension Korus.app \
+            --no-internet-enable \
+            Korus.dmg "$STAGE"
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: Korus.zip
+          files: Korus.dmg
           generate_release_notes: true
           draft: false
           prerelease: false

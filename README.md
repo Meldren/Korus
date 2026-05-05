@@ -14,7 +14,7 @@ Real-time live captions and translation overlay for macOS. Hear any audio playin
 
 ### From a release
 
-Download the latest `Korus.zip` from [Releases](https://github.com/Meldren/Korus/releases), unzip, drop into `/Applications`. First launch is ad-hoc signed, so right-click → **Open** to bypass Gatekeeper once.
+Download the latest `Korus.dmg` from [Releases](https://github.com/Meldren/Korus/releases), open it, drag Korus into Applications. The build is ad-hoc signed, so on first launch right-click the app → **Open** to bypass Gatekeeper once.
 
 ### From source
 
