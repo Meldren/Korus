@@ -1,0 +1,19 @@
+# Xcode
+build/
+DerivedData/
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+*.xcuserstate
+
+# macOS
+.DS_Store
+
+# Swift PM
+.build/
+Package.resolved
+.swiftpm/
+
+# Generated
+*.app
+*.dmg
