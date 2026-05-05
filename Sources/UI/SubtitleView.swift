@@ -59,7 +59,7 @@ struct SubtitleView: View {
                 iconButton(systemName: "doc.on.doc", help: copyHelp, disabled: actions.isRunning) {
                     copyTranscript()
                 }
-                iconButton(systemName: "trash", help: "Clear transcript") {
+                iconButton(systemName: "trash", help: trashHelp, disabled: actions.isRunning) {
                     transcript.clear()
                 }
 
@@ -88,6 +88,10 @@ struct SubtitleView: View {
 
     private var copyHelp: String {
         actions.isRunning ? "Stop listening to copy" : "Copy transcript"
+    }
+
+    private var trashHelp: String {
+        actions.isRunning ? "Stop listening to clear" : "Clear transcript"
     }
 
     private var settingsHelp: String {
