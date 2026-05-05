@@ -105,11 +105,22 @@ final class AudioCaptureCoordinator {
         sonioxClient?.disconnect()
         sonioxClient = nil
 
-        // recorder is intentionally NOT ended here — we keep the on-disk session open
-        // across Listen→Stop→Listen. `endSession()` closes it (called from trash + quit).
-
+        // Mark not-running BEFORE touching transcript so any in-flight Soniox callbacks
+        // (queued on the main actor before disconnect) bail out and don't repopulate the
+        // partial we're about to promote.
         isRunning = false
         isRunningSubject.send(false)
+
+        // Promote whatever Soniox had as a tentative tail to committed history so the user
+        // doesn't lose the dim grey suffix on pause. Same chunk is written to disk.
+        let promoted = transcript.promotePartialToCommitted()
+        if !promoted.original.isEmpty || !promoted.translated.isEmpty {
+            recorder.appendCommit(original: promoted.original, translated: promoted.translated)
+        }
+
+        // Patch the WAV header now so audio.wav opens cleanly in any player while paused.
+        recorder.flushAudioHeader()
+
         if case .listening = transcript.status {
             transcript.setStatus(.idle)
         }
@@ -166,6 +177,7 @@ extension AudioCaptureCoordinator: SonioxClientDelegate {
 
     nonisolated func sonioxClient(_ client: SonioxClient, didCommitOriginal original: String, translated: String, speaker: Int?) {
         Task { @MainActor in
+            guard self.isRunning else { return }
             self.transcript.appendCommitted(original: original, translated: translated, speaker: speaker)
             self.recorder.appendCommit(original: original, translated: translated)
         }
@@ -173,6 +185,7 @@ extension AudioCaptureCoordinator: SonioxClientDelegate {
 
     nonisolated func sonioxClient(_ client: SonioxClient, didReceivePartialOriginal original: String, translated: String) {
         Task { @MainActor in
+            guard self.isRunning else { return }
             self.transcript.updatePartial(original: original, translated: translated)
         }
     }

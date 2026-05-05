@@ -83,6 +83,25 @@ final class SessionRecorder {
         }
     }
 
+    /// Patches the WAV header with the current data length without closing the file, so
+    /// audio.wav is openable in any player even mid-session (between Stop and the next
+    /// Listen). Called from the coordinator on every stop.
+    func flushAudioHeader() {
+        queue.sync { [self] in
+            guard let h = audioHandle else { return }
+            let dataLen32 = UInt32(min(audioBytesWritten, UInt64(UInt32.max)))
+            let fileLen32 = UInt32(min(UInt64(36) &+ audioBytesWritten, UInt64(UInt32.max)))
+            do {
+                try h.seek(toOffset: 4)
+                try h.write(contentsOf: SessionRecorder.uint32LE(fileLen32))
+                try h.seek(toOffset: 40)
+                try h.write(contentsOf: SessionRecorder.uint32LE(dataLen32))
+                try h.seekToEnd()
+                try h.synchronize()
+            } catch {}
+        }
+    }
+
     /// Background-safe; expects 16 kHz mono Int16 LE PCM.
     func appendAudio(_ pcm: Data) {
         queue.async { [weak self] in

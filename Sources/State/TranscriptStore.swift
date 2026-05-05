@@ -43,6 +43,19 @@ final class TranscriptStore: ObservableObject {
         partialTranslated = translated
     }
 
+    /// Promotes the current tentative tail to committed history and clears it. Returned
+    /// tuple lets callers persist the same chunk to disk so on-screen and saved files agree.
+    func promotePartialToCommitted() -> (original: String, translated: String) {
+        let o = partialOriginal
+        let t = partialTranslated
+        guard !o.isEmpty || !t.isEmpty else { return ("", "") }
+        committedOriginal += o
+        committedTranslated += t
+        partialOriginal = ""
+        partialTranslated = ""
+        return (o, t)
+    }
+
     func clear() {
         committedOriginal = ""
         committedTranslated = ""
