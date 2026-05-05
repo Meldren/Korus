@@ -1,9 +1,9 @@
 import Foundation
 
-/// Streams every Soniox commit AND the raw audio we send to Soniox to disk inside
-/// `~/Library/Application Support/Korus/sessions/<timestamp>/`. Each Listen session
-/// gets its own folder; nothing is lost if the app crashes mid-stream because every
-/// text write is flushed and the WAV header is patched on graceful end.
+/// Writes each Listen session to its own folder under
+/// `~/Library/Application Support/Korus/sessions/<timestamp>/`: original.txt,
+/// translation.txt, audio.wav. Text is flushed on every write so a crash leaves a
+/// readable file; the WAV header is patched in `end()`.
 final class SessionRecorder {
     private let queue = DispatchQueue(label: "com.meldren.korus.session-recorder")
 
@@ -11,18 +11,14 @@ final class SessionRecorder {
     private var originalHandle: FileHandle?
     private var translationHandle: FileHandle?
     private var audioHandle: FileHandle?
-    /// 64-bit so we never wrap during multi-day sessions. The WAV format itself caps
-    /// data length at UInt32 (~4 GB ≈ 37h at 16 kHz mono Int16); past that the header
-    /// can't accurately describe the file. We saturate the patched-in size at UInt32.max
-    /// — any decent audio editor will then truncate or refuse, but the raw PCM is intact.
+    /// 64-bit so we never wrap mid-session; clamped to UInt32 when patching the WAV
+    /// header (the format itself caps at ~4 GB ≈ 37h of 16 kHz mono Int16).
     private var audioBytesWritten: UInt64 = 0
 
-    // Audio shape we hand to Soniox — same shape we record locally.
     private static let audioSampleRate: UInt32 = 16_000
     private static let audioChannels: UInt16 = 1
     private static let audioBitsPerSample: UInt16 = 16
 
-    /// Starts a new session. Returns the folder URL so callers can surface it.
     @discardableResult
     func begin(translationEnabled: Bool, customRootPath: String) throws -> URL {
         let timestamp = SessionRecorder.timestampFormatter.string(from: Date())
@@ -30,9 +26,8 @@ final class SessionRecorder {
             .appendingPathComponent(timestamp, isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
 
-        // Track handles locally so we can close all of them if any later step throws.
-        // Without this, a failed translation.txt or audio.wav open would leak the
-        // already-opened original.txt handle until the next session.
+        // Close every handle if any later step throws — otherwise a failed
+        // translation.txt / audio.wav open leaks the already-opened original.txt.
         var openedHandles: [FileHandle] = []
         do {
             let original = try makeHandle(folder: folder, name: "original.txt")
@@ -45,9 +40,8 @@ final class SessionRecorder {
                 translation = h
             }
 
-            // Open audio.wav with a placeholder header; sizes are patched in `end()` once
-            // we know the total bytes written. If the app crashes before end(), the .wav
-            // still contains valid PCM data — header just reports 0 length.
+            // Placeholder header; real sizes are patched in `end()`. On crash the .wav
+            // still has valid PCM but reports zero length (any editor can repair).
             let audioURL = folder.appendingPathComponent("audio.wav")
             FileManager.default.createFile(atPath: audioURL.path, contents: nil)
             let audio = try FileHandle(forWritingTo: audioURL)
@@ -67,8 +61,6 @@ final class SessionRecorder {
         }
     }
 
-    /// Appends a single Soniox commit to disk. Both fields are written verbatim — the
-    /// store also handles `<end>` markers as newlines, so paragraph breaks land naturally.
     func appendCommit(original: String, translated: String) {
         if !original.isEmpty {
             try? writeUTF8(original, to: originalHandle)
@@ -78,17 +70,14 @@ final class SessionRecorder {
         }
     }
 
-    /// Appends raw PCM frames (16 kHz / mono / Int16 LE) — exactly what we hand to
-    /// Soniox — to the session's `audio.wav`. Safe to call from background queues.
+    /// Background-safe; expects 16 kHz mono Int16 LE PCM.
     func appendAudio(_ pcm: Data) {
         queue.async { [weak self] in
             guard let self, let h = self.audioHandle else { return }
             do {
                 try h.write(contentsOf: pcm)
                 self.audioBytesWritten &+= UInt64(pcm.count)
-            } catch {
-                // Silently drop — losing one buffer of audio is better than crashing.
-            }
+            } catch {}
         }
     }
 
@@ -98,11 +87,9 @@ final class SessionRecorder {
         originalHandle = nil
         translationHandle = nil
 
-        // Patch the WAV header sizes now that we know how many PCM bytes were written.
-        // Drain pending writes by hopping through the queue first.
+        // queue.sync drains pending appendAudio writes before we patch the header.
         queue.sync { [self] in
             guard let h = audioHandle else { return }
-            // WAV format limits each size field to 32 bits; saturate past that.
             let dataLen32 = UInt32(min(audioBytesWritten, UInt64(UInt32.max)))
             let fileLen32 = UInt32(min(UInt64(36) &+ audioBytesWritten, UInt64(UInt32.max)))
             do {
@@ -158,8 +145,6 @@ final class SessionRecorder {
         f.locale = Locale(identifier: "en_US_POSIX")
         return f
     }()
-
-    // MARK: - WAV helpers
 
     private static func wavHeader(dataLength: UInt32) -> Data {
         let byteRate = audioSampleRate * UInt32(audioChannels) * UInt32(audioBitsPerSample) / 8

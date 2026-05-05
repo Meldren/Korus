@@ -1,8 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// SwiftUI bridge to NSVisualEffectView — used as the overlay's frosted backdrop so the
-/// panel feels like a Big Sur+ HUD floating over content rather than a flat dark rectangle.
+/// SwiftUI bridge to NSVisualEffectView for the overlay's frosted HUD backdrop.
 struct VisualEffectBackground: NSViewRepresentable {
     var material: NSVisualEffectView.Material = .hudWindow
     var blendingMode: NSVisualEffectView.BlendingMode = .behindWindow
@@ -22,8 +21,7 @@ struct VisualEffectBackground: NSViewRepresentable {
     }
 }
 
-/// Marks a region as "not the window's drag handle" — AppKit's `isMovableByWindowBackground`
-/// otherwise lets the user drag the whole panel by clicking anywhere transparent.
+/// Opts a region out of `isMovableByWindowBackground` so clicks here don't drag the panel.
 struct WindowDragBlocker: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         BlockerView()

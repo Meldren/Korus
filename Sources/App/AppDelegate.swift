@@ -14,7 +14,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Regular policy so the K-logo lives in the Dock; the NSStatusItem menubar icon is gone.
         NSApp.setActivationPolicy(.regular)
         NSApp.applicationIconImage = KLogoRenderer.makeDockIcon()
 
@@ -38,7 +37,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             .sink { [weak self] running in self?.actions.isRunning = running }
             .store(in: &cancellables)
 
-        // Refresh language list from Soniox now (if we have a key) and whenever the key changes.
         languages.refresh(apiKey: settings.sonioxAPIKey)
         settings.$sonioxAPIKey
             .removeDuplicates()

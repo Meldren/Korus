@@ -8,18 +8,9 @@ protocol SonioxClientDelegate: AnyObject {
     func sonioxClient(_ client: SonioxClient, didDisconnectWithError error: Error?)
 }
 
-/// Streams 16-kHz mono PCM frames to the Soniox real-time STT WebSocket and decodes
-/// incremental transcription + translation tokens. Protocol:
-///   1. Connect to wss://stt-rt.soniox.com/transcribe-websocket
-///   2. Send a single JSON config frame (text)
-///   3. Stream PCM frames as binary messages
-///   4. Receive JSON frames with `tokens` array
-///   5. On stop, send an empty binary frame to flush, then close
-///
-/// Token semantics (Soniox real-time):
-///   - `is_final: true`  → append-only commitment, won't change.
-///   - `is_final: false` → tentative tail prediction; the FULL tail is re-sent each frame
-///                          (so we discard prior pending tokens at the start of every frame).
+/// Soniox real-time WebSocket: send one JSON config, then stream PCM frames; receive JSON
+/// frames with `tokens`. Per Soniox semantics, `is_final: true` tokens are append-only
+/// commitments while `is_final: false` is the full tentative tail re-sent each frame.
 final class SonioxClient: NSObject {
     weak var delegate: SonioxClientDelegate?
 
@@ -147,8 +138,7 @@ final class SonioxClient: NSObject {
             if let speakerString = token.speaker, let speaker = Int(speakerString) {
                 lastSpeaker = speaker
             }
-            // Soniox emits "<end>" markers between utterances — surface them as a newline so
-            // the UI breaks paragraphs naturally.
+            // Soniox emits "<end>" between utterances; surface as paragraph break.
             let text = token.text == "<end>" ? "\n" : token.text
 
             if token.isFinal == true {
@@ -179,7 +169,6 @@ final class SonioxClient: NSObject {
             }
         }
 
-        // The non-final tail is always sent in full each frame; relay verbatim.
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.delegate?.sonioxClient(

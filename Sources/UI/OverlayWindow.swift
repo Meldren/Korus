@@ -27,8 +27,8 @@ final class OverlayController {
         let initialSize = NSSize(width: Self.width, height: Self.captionsHeight)
         let screen = NSScreen.main ?? NSScreen.screens.first
         let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        // Park the panel ~22% above the bottom of the visible frame — high enough that
-        // a video player's controls don't overlap, low enough to read like a subtitle.
+        // ~22% above the bottom of the visible frame: clear of player controls,
+        // low enough to read like a subtitle.
         let origin = NSPoint(
             x: visible.midX - initialSize.width / 2,
             y: visible.minY + visible.height * 0.22
@@ -63,12 +63,11 @@ final class OverlayController {
 
     private func applyPinning(_ pinned: Bool) {
         if pinned {
-            // Floats over everything — fullscreen apps, dock, menubar.
+            // Float over fullscreen apps, dock, menubar.
             window.level = .statusBar
             window.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
         } else {
-            // Behaves like a regular window: stays on its origin space and is hidden
-            // when another app enters fullscreen on a new space.
+            // Pin off → stay on origin space; hide when another app goes fullscreen.
             window.level = .normal
             window.collectionBehavior = [.stationary]
         }
@@ -91,8 +90,8 @@ final class OverlayController {
 
         let newOriginY: CGFloat
         if showing {
-            // Expanding: prefer to grow downward (keep the top edge fixed),
-            // but if there isn't enough room below, grow upward (keep the bottom edge fixed).
+            // Grow downward (top edge fixed) if there's room, otherwise upward
+            // (bottom edge fixed). Centred only when neither side fits.
             let topY = current.origin.y + current.height
             let proposedBottomDown = topY - targetHeight
             let fitsDown = proposedBottomDown >= visible.minY + Self.edgePadding
@@ -107,26 +106,21 @@ final class OverlayController {
                     newOriginY = bottomY
                     lastExpandDirection = .up
                 } else {
-                    // Doesn't fit either way — center vertically inside the visible frame.
                     newOriginY = visible.minY + (visible.height - targetHeight) / 2
                     lastExpandDirection = .down
                 }
             }
         } else {
-            // Collapsing: reverse the direction we expanded in, so the window snaps back
-            // toward the same anchor edge.
+            // Collapse along the same edge we expanded from.
             switch lastExpandDirection {
             case .down:
-                // We grew downward → shrink upward, keep the top edge fixed.
                 let topY = current.origin.y + current.height
                 newOriginY = topY - targetHeight
             case .up:
-                // We grew upward → shrink downward, keep the bottom edge fixed.
                 newOriginY = current.origin.y
             }
         }
 
-        // Clamp horizontally and vertically inside visible frame just in case.
         let clampedX = max(visible.minX + Self.edgePadding,
                            min(current.origin.x, visible.maxX - current.width - Self.edgePadding))
         let clampedY = max(visible.minY + Self.edgePadding,
@@ -148,9 +142,8 @@ final class OverlayController {
     static let resizeDuration: CFTimeInterval = 0.26
 }
 
-/// Bridge view that flips between captions and settings, kept inside the same overlay window.
-/// Uses an explicit onReceive subscription instead of relying on SwiftUI to redraw from
-/// the EnvironmentObject — that path was unreliable inside an NSHostingView.
+/// Toggles captions ↔ settings inside the overlay. The explicit `onReceive` instead of
+/// reading the EnvironmentObject directly works around unreliable redraws inside NSHostingView.
 struct OverlayRoot: View {
     @EnvironmentObject private var actions: AppActions
     @EnvironmentObject private var settings: AppSettings
@@ -159,8 +152,8 @@ struct OverlayRoot: View {
     private static let cornerRadius: CGFloat = 20
 
     var body: some View {
-        // Shared background lives at this level; child views must NOT paint their own,
-        // otherwise cross-fading two semi-transparent layers compounds opacity at mid-anim.
+        // Shared background sits here; child views MUST NOT paint their own — two
+        // semi-transparent layers would compound opacity during cross-fade.
         ZStack {
             VisualEffectBackground(material: .hudWindow, blendingMode: .behindWindow)
                 .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
@@ -189,8 +182,8 @@ struct OverlayRoot: View {
 final class KorusOverlayWindow: NSPanel {
     init(contentRect: NSRect) {
         super.init(
-            // .nonactivatingPanel is required so the overlay can float over other apps'
-            // fullscreen windows without stealing focus from them.
+            // .nonactivatingPanel lets the overlay float over other apps' fullscreen
+            // windows without stealing their focus.
             contentRect: contentRect,
             styleMask: [.nonactivatingPanel, .borderless, .resizable, .fullSizeContentView],
             backing: .buffered,

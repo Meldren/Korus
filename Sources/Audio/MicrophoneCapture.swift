@@ -9,7 +9,6 @@ final class MicrophoneCapture {
 
     init(onPCM: @escaping (Data) -> Void) {
         self.onPCM = onPCM
-        // 16-bit signed little-endian, 16 kHz, mono, interleaved.
         self.outputFormat = AVAudioFormat(
             commonFormat: .pcmFormatInt16,
             sampleRate: Double(SonioxConstants.sampleRate),

@@ -29,8 +29,6 @@ struct InlineSettingsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // MARK: - Header
-
     private var header: some View {
         HStack(spacing: 12) {
             KLogoView(size: 22)
@@ -59,8 +57,6 @@ struct InlineSettingsView: View {
         .padding(.top, 22)
         .padding(.bottom, 18)
     }
-
-    // MARK: - Sections
 
     private var sonioxSection: some View {
         section(title: "Soniox API key") {
@@ -168,8 +164,6 @@ struct InlineSettingsView: View {
         panel.canCreateDirectories = true
         panel.prompt = "Choose"
         panel.title = "Choose Korus sessions folder"
-        // Open the picker already pointing at the current sessions folder (or its parent
-        // if it doesn't exist yet) so the user lands in a familiar place.
         if let current = try? SessionRecorder.sessionsRoot(customPath: settings.sessionsCustomPath) {
             panel.directoryURL = current
         }
@@ -235,8 +229,6 @@ struct InlineSettingsView: View {
         }
     }
 
-    // MARK: - Helpers
-
     @ViewBuilder
     private func section<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -248,8 +240,6 @@ struct InlineSettingsView: View {
         }
     }
 }
-
-// MARK: - Atoms
 
 private struct SecureFieldRow: View {
     @Binding var text: String

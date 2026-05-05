@@ -2,10 +2,6 @@ import AVFoundation
 import CoreAudio
 import Foundation
 
-/// Captures system-wide output audio on macOS 14.4+ using the new CoreAudio Tap API.
-/// Pattern follows the working AudioTee reference implementation: a process tap with an
-/// empty `processes` list and `isExclusive = true` (i.e. exclude no one = capture all),
-/// fed into an aggregate device that has no real subdevice — just the tap.
 @available(macOS 14.4, *)
 final class SystemAudioCapture {
     private let onPCM: (Data) -> Void
@@ -29,7 +25,7 @@ final class SystemAudioCapture {
     func start() throws {
         let (tap, tapUUID) = try createSystemTap()
 
-        // Make sure any failure after this point still releases the tap object.
+        // Cleanup-on-throw: unwound by the success path below.
         var tapToCleanup: AudioObjectID? = tap
         defer {
             if let id = tapToCleanup {
@@ -83,7 +79,6 @@ final class SystemAudioCapture {
             )
         }
 
-        // Success — keep the tap and aggregate alive past the defers.
         self.tapID = tap
         self.aggregateID = aggregate
         self.deviceProcID = procID
@@ -107,12 +102,10 @@ final class SystemAudioCapture {
         }
     }
 
-    // MARK: - Tap creation
-
     private func createSystemTap() throws -> (AudioObjectID, UUID) {
-        // Empty-init form + processes=[] + isExclusive=true means "exclude no one" — the
-        // tap captures the entire system mix. Pre-set the UUID so we can pass it to the
-        // aggregate device dictionary directly (matches the AudioCap reference).
+        // Empty `processes` + `isExclusive = true` = "exclude no one" = capture the
+        // whole system mix. The parameterised initialisers (stereoMixdownOfProcesses,
+        // stereoGlobalTapButExcludeProcesses) hand back silent buffers in this config.
         let description = CATapDescription()
         let uuid = UUID()
         description.uuid = uuid
@@ -152,11 +145,9 @@ final class SystemAudioCapture {
     }
 
     private func createAggregateDevice(tapUUID: UUID) throws -> AudioObjectID {
-        // Aggregate device pattern from insidegui/AudioCap. The bundled-app variant
-        // requires the system output device as MainSubDevice and SubDeviceList anchor,
-        // plus `TapAutoStart=true` so the tap activates with the device. Without these
-        // AudioDeviceStart returns kAudioHardwareIllegalOperationError ('nope') on
-        // hardened-runtime apps.
+        // Hardened-runtime bundled apps need the system output as MainSubDevice +
+        // SubDeviceList anchor and `TapAutoStart=true`, otherwise AudioDeviceStart
+        // returns kAudioHardwareIllegalOperationError ('nope'). See insidegui/AudioCap.
         let outputUID = try defaultOutputDeviceUID()
         let aggregateUID = UUID().uuidString
 
@@ -229,8 +220,6 @@ final class SystemAudioCapture {
         }
         return uidRef as String
     }
-
-    // MARK: - IO proc
 
     private func handle(inputData: UnsafePointer<AudioBufferList>) {
         guard let converter, let sourceFormat else { return }

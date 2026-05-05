@@ -28,8 +28,6 @@ struct SubtitleView: View {
         settings.sonioxAPIKey.isEmpty
     }
 
-    // MARK: - Toolbar
-
     private var toolbar: some View {
         HStack(spacing: 12) {
             KLogoView(size: 22)
@@ -96,14 +94,11 @@ struct SubtitleView: View {
         actions.isRunning ? "Stop listening to change settings" : "Settings"
     }
 
-    /// Estimated cost of the current Soniox session, derived from the `total_audio_proc_ms`
-    /// the server reports. Soniox doesn't expose account balance via API, so this is the
-    /// best we can show without scraping the Console.
+    /// Local estimate from `total_audio_proc_ms`; Soniox doesn't expose balance via API.
     private var sessionCostChip: some View {
         let hours = transcript.sessionProcessedSeconds / 3600.0
         let rate = settings.translationEnabled ? 0.18 : 0.12
         let cost = hours * rate
-        // Show 3 decimals when cost is small (under $1), otherwise 2.
         let formatted = cost < 1 ? String(format: "$%.3f", cost) : String(format: "$%.2f", cost)
         return HStack(spacing: 4) {
             Image(systemName: "dollarsign.circle")
@@ -321,8 +316,6 @@ struct SubtitleView: View {
         .help(help ?? "")
     }
 
-    // MARK: - Export
-
     private func copyTranscript() {
         let text = composedTranscriptText()
         guard !text.isEmpty else { return }
@@ -337,8 +330,6 @@ struct SubtitleView: View {
         let translated = (transcript.committedTranslated + transcript.partialTranslated)
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // Translation mode: export only the target-language transcript.
-        // No-translation mode: export only the source-language transcript.
         if settings.translationEnabled {
             return translated.isEmpty ? original : translated
         }
@@ -364,8 +355,6 @@ struct SubtitleView: View {
         .help(settings.alwaysOnTop ? "Pinned (always on top)" : "Pin overlay on top")
     }
 
-    // MARK: - Captions
-
     @ViewBuilder
     private var captions: some View {
         if settings.translationEnabled && settings.showOriginal {
@@ -375,10 +364,8 @@ struct SubtitleView: View {
         }
     }
 
-    /// Translation mode with both columns: original on the left, translation on the right,
-    /// separated by a draggable divider. Backed by NSSplitView so live resize is smooth
-    /// even on long transcripts. EnvironmentObjects must be re-injected explicitly because
-    /// NSHostingView starts a fresh SwiftUI environment.
+    /// EnvironmentObjects are re-injected on each side: NSHostingView starts a fresh
+    /// SwiftUI environment, so the parent's `@EnvironmentObject` chain doesn't propagate.
     @ViewBuilder
     private var splitCaptions: some View {
         SplitColumnsView(minSide: 140) {
@@ -544,8 +531,6 @@ struct SubtitleView: View {
                 .foregroundStyle(.white.opacity(0.4))
         }
     }
-
-    // MARK: - Onboarding
 
     private var onboarding: some View {
         VStack(alignment: .leading, spacing: 14) {

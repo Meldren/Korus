@@ -67,8 +67,7 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(translationEnabled, forKey: Keys.translationEnabled) }
     }
 
-    /// Optional override for the sessions folder. Empty = default
-    /// `~/Library/Application Support/Korus/sessions`. Tilde expansion is applied at use time.
+    /// Empty = default `~/Library/Application Support/Korus/sessions`. Tilde-expanded at use.
     @Published var sessionsCustomPath: String {
         didSet { defaults.set(sessionsCustomPath, forKey: Keys.sessionsCustomPath) }
     }

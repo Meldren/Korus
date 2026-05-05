@@ -60,8 +60,6 @@ final class AudioCaptureCoordinator {
                 customRootPath: settings.sessionsCustomPath
             )
         } catch {
-            // Don't block listening just because the disk recorder failed; surface a
-            // best-effort log via status if needed.
             NSLog("[Korus] SessionRecorder.begin failed: \(error)")
         }
 

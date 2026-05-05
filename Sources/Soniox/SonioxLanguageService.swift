@@ -1,9 +1,8 @@
 import Combine
 import Foundation
 
-/// Pulls the live list of supported languages from Soniox' GET /v1/models endpoint.
-/// Caches the result in UserDefaults so subsequent launches show the picker instantly,
-/// even if the API call hasn't returned yet.
+/// Fetches supported languages from Soniox /v1/models, cached in UserDefaults so the
+/// picker is populated instantly on the next launch.
 final class SonioxLanguageService: ObservableObject {
     private struct ModelsResponse: Decodable {
         let models: [Model]
@@ -38,8 +37,6 @@ final class SonioxLanguageService: ObservableObject {
 
     var isLoaded: Bool { !languages.isEmpty }
 
-    /// Fetches /v1/models and updates the published list. Silent on failures —
-    /// the cached or fallback list keeps the UI usable.
     func refresh(apiKey: String) {
         guard !apiKey.isEmpty else { return }
 
@@ -73,9 +70,7 @@ final class SonioxLanguageService: ObservableObject {
                 DispatchQueue.main.async {
                     self.languages = options
                 }
-            } catch {
-                // Decoding failed — keep cached/fallback list.
-            }
+            } catch {}
         }.resume()
     }
 

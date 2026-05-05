@@ -1,7 +1,6 @@
 import AppKit
 import SwiftUI
 
-/// Reusable bold "K" mark used in the overlay header and as the macOS app/Dock icon.
 struct KLogoView: View {
     var size: CGFloat = 24
     var color: Color = .white
@@ -15,8 +14,6 @@ struct KLogoView: View {
     }
 }
 
-/// SwiftUI view used to render the Dock icon. Lives in this file so the look is co-located
-/// with `KLogoView` — same K, same proportions, just at icon scale.
 private struct KDockIconView: View {
     let dimension: CGFloat
 
@@ -50,8 +47,6 @@ private struct KDockIconView: View {
 }
 
 enum KLogoRenderer {
-    /// Generates a square Dock icon NSImage with a continuous squircle background
-    /// (matches the overlay window's `RoundedRectangle(style: .continuous)` shape).
     @MainActor
     static func makeDockIcon(size: CGFloat = 1024) -> NSImage {
         let renderer = ImageRenderer(content: KDockIconView(dimension: size))
@@ -59,7 +54,6 @@ enum KLogoRenderer {
         if let cg = renderer.cgImage {
             return NSImage(cgImage: cg, size: NSSize(width: size, height: size))
         }
-        // Fallback to a blank image so the call site never crashes.
         return NSImage(size: NSSize(width: size, height: size))
     }
 }
