@@ -190,8 +190,8 @@ extension AudioCaptureCoordinator: SonioxClientDelegate {
             var t = translated
             if self.pendingSeparator && (!o.isEmpty || !t.isEmpty) {
                 self.pendingSeparator = false
-                if !o.isEmpty { o = " " + o }
-                if !t.isEmpty { t = " " + t }
+                if !o.isEmpty { o = "\n" + o }
+                if !t.isEmpty { t = "\n" + t }
             }
             self.transcript.appendCommitted(original: o, translated: t, speaker: speaker)
             self.recorder.appendCommit(original: o, translated: t)
