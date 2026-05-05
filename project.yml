@@ -20,7 +20,6 @@ targets:
     platform: macOS
     sources:
       - Sources
-    resources:
       - Resources/Assets.xcassets
     info:
       path: Resources/Info.plist
