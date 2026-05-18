@@ -11,6 +11,7 @@ final class AudioCaptureCoordinator {
     private var sonioxClient: SonioxClient?
     private var microphone: MicrophoneCapture?
     private var systemAudio: AnyObject?  // SystemAudioCapture (gated by 14.4)
+    private var mixer: AudioMixer?
     private let recorder = SessionRecorder()
     /// True after a Stop while the on-disk session is still open. The next non-empty
     /// commit prepends a separator so words from before/after the pause don't glue.
@@ -105,6 +106,9 @@ final class AudioCaptureCoordinator {
         }
         systemAudio = nil
 
+        mixer?.stop()
+        mixer = nil
+
         sonioxClient?.disconnect()
         sonioxClient = nil
 
@@ -139,19 +143,26 @@ final class AudioCaptureCoordinator {
     }
 
     private func startCapture() throws {
-        let onPCM: (Data) -> Void = { [weak self] data in
+        let sendToSoniox: (Data) -> Void = { [weak self] data in
             self?.sonioxClient?.sendPCM(data)
             self?.recorder.appendAudio(data)
         }
 
         switch settings.audioSource {
         case .microphone:
-            try startMicrophone(onPCM: onPCM)
+            try startMicrophone(onPCM: sendToSoniox)
         case .systemAudio:
-            try startSystemAudio(onPCM: onPCM)
+            try startSystemAudio(onPCM: sendToSoniox)
         case .both:
-            try startMicrophone(onPCM: onPCM)
-            try startSystemAudio(onPCM: onPCM)
+            // Two independent PCM producers can't both write straight to Soniox — that
+            // interleaves alien frames as one stream and the model garbles it. Route
+            // both into AudioMixer, which sums sample-by-sample (with /2 headroom) and
+            // emits one continuous chunked stream.
+            let m = AudioMixer(sampleRate: SonioxConstants.sampleRate, onPCM: sendToSoniox)
+            m.start()
+            self.mixer = m
+            try startMicrophone(onPCM: { [weak m] data in m?.appendMic(data) })
+            try startSystemAudio(onPCM: { [weak m] data in m?.appendSystem(data) })
         }
     }
 
