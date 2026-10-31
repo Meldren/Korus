@@ -56,6 +56,7 @@ struct InlineSettingsView: View {
         .padding(.horizontal, 22)
         .padding(.top, 22)
         .padding(.bottom, 18)
+        .background(WindowDragHandle())
     }
 
     private var sonioxSection: some View {

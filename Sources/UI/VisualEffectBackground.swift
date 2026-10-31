@@ -7,7 +7,7 @@ struct VisualEffectBackground: NSViewRepresentable {
     var blendingMode: NSVisualEffectView.BlendingMode = .behindWindow
 
     func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
+        let view = DraggableVisualEffectView()
         view.material = material
         view.blendingMode = blendingMode
         view.state = .active
@@ -18,6 +18,27 @@ struct VisualEffectBackground: NSViewRepresentable {
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
         nsView.material = material
         nsView.blendingMode = blendingMode
+    }
+
+    private final class DraggableVisualEffectView: NSVisualEffectView {
+        override func mouseDown(with event: NSEvent) {
+            window?.performDrag(with: event)
+        }
+    }
+}
+
+/// Dedicated draggable view that can be attached to toolbars/headers to initiate window dragging.
+struct WindowDragHandle: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        DragView()
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    private final class DragView: NSView {
+        override func mouseDown(with event: NSEvent) {
+            window?.performDrag(with: event)
+        }
     }
 }
 
