@@ -18,6 +18,8 @@ final class OverlayController {
     private static let settingsHeight: CGFloat = 600
     private static let width: CGFloat = 820
     private static let edgePadding: CGFloat = 12
+    private static let originXKey = "overlayOriginX"
+    private static let originYKey = "overlayOriginY"
 
     init(transcript: TranscriptStore, settings: AppSettings, actions: AppActions, languages: SonioxLanguageService) {
         self.transcript = transcript
@@ -29,10 +31,21 @@ final class OverlayController {
         let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         // ~22% above the bottom of the visible frame: clear of player controls,
         // low enough to read like a subtitle.
-        let origin = NSPoint(
+        let defaultOrigin = NSPoint(
             x: visible.midX - initialSize.width / 2,
             y: visible.minY + visible.height * 0.22
         )
+
+        let origin: NSPoint
+        if let savedX = UserDefaults.standard.object(forKey: Self.originXKey) as? CGFloat,
+           let savedY = UserDefaults.standard.object(forKey: Self.originYKey) as? CGFloat {
+            let candidate = NSPoint(x: savedX, y: savedY)
+            let candidateRect = NSRect(origin: candidate, size: initialSize)
+            let isVisibleOnAnyScreen = NSScreen.screens.contains { $0.frame.intersects(candidateRect) }
+            origin = isVisibleOnAnyScreen ? candidate : defaultOrigin
+        } else {
+            origin = defaultOrigin
+        }
         let frame = NSRect(origin: origin, size: initialSize)
 
         self.window = KorusOverlayWindow(contentRect: frame)
@@ -44,6 +57,16 @@ final class OverlayController {
                 .environmentObject(languages)
         )
         window.contentView = hosting
+
+        NotificationCenter.default.publisher(for: NSWindow.didMoveNotification, object: window)
+            .debounce(for: .milliseconds(300), scheduler: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                let frame = self.window.frame
+                UserDefaults.standard.set(frame.origin.x, forKey: Self.originXKey)
+                UserDefaults.standard.set(frame.origin.y, forKey: Self.originYKey)
+            }
+            .store(in: &cancellables)
 
         actions.$isShowingSettings
             .removeDuplicates()
@@ -160,9 +183,11 @@ struct OverlayRoot: View {
 
             RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
                 .fill(.black.opacity(settings.overlayOpacity * 0.7))
+                .allowsHitTesting(false)
 
             RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
                 .strokeBorder(.white.opacity(0.08), lineWidth: 1)
+                .allowsHitTesting(false)
 
             SubtitleView()
                 .opacity(showingSettings ? 0 : 1)
@@ -194,6 +219,7 @@ final class KorusOverlayWindow: NSPanel {
         self.backgroundColor = .clear
         self.level = .statusBar
         self.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
+        self.isMovable = true
         self.isMovableByWindowBackground = true
         self.hidesOnDeactivate = false
         self.isReleasedWhenClosed = false

@@ -84,6 +84,7 @@ struct SubtitleView: View {
         .padding(.horizontal, 18)
         .padding(.top, 22)
         .padding(.bottom, 18)
+        .background(WindowDragHandle())
     }
 
     private var copyHelp: String {
